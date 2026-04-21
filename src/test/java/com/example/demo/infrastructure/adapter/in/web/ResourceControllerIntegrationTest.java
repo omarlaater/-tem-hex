@@ -91,4 +91,30 @@ class ResourceControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.path").value("/api/v1/resources/f78a8762-f661-45c8-b45a-1d154a61f0a5"));
     }
+
+    @Test
+    void shouldExposeDocumentedOpenApiContract() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources'].post.operationId").value("createResource"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources'].post.responses['201'].description")
+                        .value("Resource created successfully"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources'].post.responses['400'].description")
+                        .value("Invalid request payload"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources'].post.responses['401'].description")
+                        .value("Unauthorized - missing or invalid authentication token"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources'].post.responses['403'].description")
+                        .value("Forbidden - insufficient permissions to create resource"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources'].get.operationId").value("listResources"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources/{resourceId}'].get.operationId").value("getResource"))
+                .andExpect(jsonPath("$.paths['/api/v1/resources/{resourceId}'].get.responses['404'].description")
+                        .value("Resource not found"))
+                .andExpect(jsonPath("$.components.schemas.CreateResourceRequest.properties.name.maxLength").value(100))
+                .andExpect(jsonPath("$.components.schemas.ResourceResponse.properties.resourceId.format").value("uuid"))
+                .andExpect(jsonPath("$.components.schemas.ApiErrorResponse.properties.details.description")
+                        .value("List of detailed validation errors"));
+    }
 }

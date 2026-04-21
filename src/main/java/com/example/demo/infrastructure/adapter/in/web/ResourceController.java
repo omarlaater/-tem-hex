@@ -5,12 +5,21 @@ import com.example.demo.application.port.in.CreateResourceUseCase;
 import com.example.demo.application.port.in.GetResourceUseCase;
 import com.example.demo.application.port.in.ListResourcesUseCase;
 import com.example.demo.domain.model.Resource;
+import com.example.demo.infrastructure.adapter.in.web.error.ApiErrorResponse;
 import com.example.demo.infrastructure.adapter.in.web.mapper.ResourceWebMapper;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/resources")
 @Tag(name = "Resources", description = "Resource management APIs")
+@SecurityRequirement(name = "bearerAuth")
 public class ResourceController {
 
     private final CreateResourceUseCase createResourceUseCase;
@@ -43,7 +53,45 @@ public class ResourceController {
     }
 
     @PostMapping
-    @Operation(summary = "Create resource", description = "Creates a new resource")
+    @Operation(
+            summary = "Create resource",
+            description = "Creates a new resource with name, description, and status.",
+            operationId = "createResource"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Resource created successfully",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ResourceResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request payload",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - missing or invalid authentication token",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions to create resource",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            )
+    })
     public ResponseEntity<ResourceResponse> createResource(@Valid @RequestBody CreateResourceRequest request) {
         CreateResourceCommand command = resourceWebMapper.toCreateCommand(request);
         Resource createdResource = createResourceUseCase.createResource(command);
@@ -51,14 +99,93 @@ public class ResourceController {
     }
 
     @GetMapping
-    @Operation(summary = "List resources", description = "Returns all resources")
+    @Operation(
+            summary = "List all resources",
+            description = "Retrieves a list of all available resources in the system.",
+            operationId = "listResources"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "List of resources returned successfully",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            array = @ArraySchema(schema = @Schema(implementation = ResourceResponse.class))
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - missing or invalid authentication token",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions to view resources",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            )
+    })
     public List<ResourceResponse> listResources() {
         return resourceWebMapper.toResponseList(listResourcesUseCase.listResources());
     }
 
     @GetMapping("/{resourceId}")
-    @Operation(summary = "Get resource", description = "Returns a resource by id")
-    public ResourceResponse getResource(@PathVariable UUID resourceId) {
+    @Operation(
+            summary = "Get resource by id",
+            description = "Retrieves a single resource by its unique identifier.",
+            operationId = "getResource"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Resource returned successfully",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ResourceResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid resource identifier",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - missing or invalid authentication token",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions to view resource",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Resource not found",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            )
+    })
+    public ResourceResponse getResource(
+            @Parameter(description = "Unique resource identifier", example = "f78a8762-f661-45c8-b45a-1d154a61f0a5")
+            @PathVariable UUID resourceId
+    ) {
         return resourceWebMapper.toResponse(getResourceUseCase.getResource(resourceId));
     }
 }
