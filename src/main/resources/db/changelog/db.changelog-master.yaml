@@ -1,24 +1,27 @@
 databaseChangeLog:
   - changeSet:
-      id: 001-create-products-table
+      id: 001-create-resources-table
       author: template
       changes:
         - createTable:
-            tableName: products
+            tableName: resources
             columns:
               - column:
-                  name: id
+                  name: resource_id
                   type: UUID
                   constraints:
                     nullable: false
                     primaryKey: true
               - column:
                   name: name
-                  type: VARCHAR(150)
+                  type: VARCHAR(100)
                   constraints:
                     nullable: false
               - column:
-                  name: price
-                  type: DECIMAL(19,2)
+                  name: description
+                  type: VARCHAR(500)
+              - column:
+                  name: status
+                  type: VARCHAR(50)
                   constraints:
                     nullable: false

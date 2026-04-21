@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(git -C C:\\Users\\21656\\Desktop\\demo log --oneline -20)",
+      "Bash(git -C \"/Users/21656/Desktop/demo\" log --oneline -20)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

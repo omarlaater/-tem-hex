@@ -13,8 +13,8 @@ public class OpenApiConfiguration {
     public OpenAPI templateOpenApi() {
         return new OpenAPI().info(
                 new Info()
-                        .title("Spring Boot Hexagonal Template API")
-                        .description("Production-ready hexagonal architecture template")
+                        .title("Resource API")
+                        .description("Resource management API")
                         .version("v1")
                         .contact(new Contact().name("Template Team").email("team@example.com"))
         );
