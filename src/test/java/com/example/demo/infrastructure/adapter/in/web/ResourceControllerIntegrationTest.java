@@ -74,22 +74,25 @@ class ResourceControllerIntegrationTest {
                                 {
                                   "name": ""
                                 }
-                                """))
+                """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.path").value("/api/v1/resources"))
-                .andExpect(jsonPath("$.details").isArray())
-                .andExpect(jsonPath("$.details.length()").value(1));
+                .andExpect(jsonPath("$.errors").isArray())
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0].message").value("name is required"))
+                .andExpect(jsonPath("$.errors[0].attribute").value("name"))
+                .andExpect(jsonPath("$.errors[0].path").value("$.name"));
     }
 
     @Test
     void shouldReturnStructuredNotFoundError() throws Exception {
         mockMvc.perform(get("/api/v1/resources/{resourceId}", "f78a8762-f661-45c8-b45a-1d154a61f0a5"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
-                .andExpect(jsonPath("$.path").value("/api/v1/resources/f78a8762-f661-45c8-b45a-1d154a61f0a5"));
+                .andExpect(jsonPath("$.errors").isArray())
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.errors[0].attribute").value("resourceId"))
+                .andExpect(jsonPath("$.errors[0].path").value("$.resourceId"));
     }
 
     @Test
@@ -114,7 +117,9 @@ class ResourceControllerIntegrationTest {
                         .value("Resource not found"))
                 .andExpect(jsonPath("$.components.schemas.CreateResourceRequest.properties.name.maxLength").value(100))
                 .andExpect(jsonPath("$.components.schemas.ResourceResponse.properties.resourceId.format").value("uuid"))
-                .andExpect(jsonPath("$.components.schemas.ApiErrorResponse.properties.details.description")
-                        .value("List of detailed validation errors"));
+                .andExpect(jsonPath("$.components.schemas.ApiErrorResponse.properties.errors.description")
+                        .value("List of API errors"))
+                .andExpect(jsonPath("$.components.schemas.ApiError.properties.path.example")
+                        .value("$.addresses[2].zip"));
     }
 }

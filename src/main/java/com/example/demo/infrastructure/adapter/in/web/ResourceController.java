@@ -2,8 +2,11 @@ package com.example.demo.infrastructure.adapter.in.web;
 
 import com.example.demo.application.port.in.CreateResourceCommand;
 import com.example.demo.application.port.in.CreateResourceUseCase;
+import com.example.demo.application.port.in.DeleteResourceUseCase;
 import com.example.demo.application.port.in.GetResourceUseCase;
 import com.example.demo.application.port.in.ListResourcesUseCase;
+import com.example.demo.application.port.in.UpdateResourceCommand;
+import com.example.demo.application.port.in.UpdateResourceUseCase;
 import com.example.demo.domain.model.Resource;
 import com.example.demo.infrastructure.adapter.in.web.error.ApiErrorResponse;
 import com.example.demo.infrastructure.adapter.in.web.mapper.ResourceWebMapper;
@@ -22,9 +25,11 @@ import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,17 +43,23 @@ public class ResourceController {
     private final CreateResourceUseCase createResourceUseCase;
     private final ListResourcesUseCase listResourcesUseCase;
     private final GetResourceUseCase getResourceUseCase;
+    private final UpdateResourceUseCase updateResourceUseCase;
+    private final DeleteResourceUseCase deleteResourceUseCase;
     private final ResourceWebMapper resourceWebMapper;
 
     public ResourceController(
             CreateResourceUseCase createResourceUseCase,
             ListResourcesUseCase listResourcesUseCase,
             GetResourceUseCase getResourceUseCase,
+            UpdateResourceUseCase updateResourceUseCase,
+            DeleteResourceUseCase deleteResourceUseCase,
             ResourceWebMapper resourceWebMapper
     ) {
         this.createResourceUseCase = createResourceUseCase;
         this.listResourcesUseCase = listResourcesUseCase;
         this.getResourceUseCase = getResourceUseCase;
+        this.updateResourceUseCase = updateResourceUseCase;
+        this.deleteResourceUseCase = deleteResourceUseCase;
         this.resourceWebMapper = resourceWebMapper;
     }
 
@@ -187,5 +198,115 @@ public class ResourceController {
             @PathVariable UUID resourceId
     ) {
         return resourceWebMapper.toResponse(getResourceUseCase.getResource(resourceId));
+    }
+
+    @PutMapping("/{resourceId}")
+    @Operation(
+            summary = "Update resource",
+            description = "Updates an existing resource identified by its unique identifier.",
+            operationId = "updateResource"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Resource updated successfully",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ResourceResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request payload",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - missing or invalid authentication token",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions to update resource",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Resource not found",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            )
+    })
+    public ResourceResponse updateResource(
+            @Parameter(description = "Unique resource identifier", example = "f78a8762-f661-45c8-b45a-1d154a61f0a5")
+            @PathVariable UUID resourceId,
+            @Valid @RequestBody UpdateResourceRequest request
+    ) {
+        UpdateResourceCommand command = resourceWebMapper.toUpdateCommand(resourceId, request);
+        Resource updatedResource = updateResourceUseCase.updateResource(command);
+        return resourceWebMapper.toResponse(updatedResource);
+    }
+
+    @DeleteMapping("/{resourceId}")
+    @Operation(
+            summary = "Delete resource",
+            description = "Deletes a resource identified by its unique identifier.",
+            operationId = "deleteResource"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Resource deleted successfully"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid resource identifier",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - missing or invalid authentication token",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions to delete resource",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Resource not found",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ApiErrorResponse.class)
+                    )
+            )
+    })
+    public ResponseEntity<Void> deleteResource(
+            @Parameter(description = "Unique resource identifier", example = "f78a8762-f661-45c8-b45a-1d154a61f0a5")
+            @PathVariable UUID resourceId
+    ) {
+        deleteResourceUseCase.deleteResource(resourceId);
+        return ResponseEntity.noContent().build();
     }
 }

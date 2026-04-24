@@ -169,29 +169,33 @@ Request flow:
 
 ## 9. Error Handling
 
-Global exception handling is centralized in `GlobalExceptionHandler` and returns a consistent JSON format:
+Global exception handling is centralized in `GlobalExceptionHandler` and returns the company error envelope:
 
 ```json
 {
-  "timestamp": "2026-03-02T00:00:00Z",
-  "status": 400,
-  "error": "Bad Request",
-  "code": "VALIDATION_ERROR",
-  "message": "Request validation failed",
-  "path": "/api/v1/resources",
-  "details": [
-    { "field": "name", "message": "name is required" }
+  "errors": [
+    {
+      "code": "VALIDATION_ERROR",
+      "message": "name is required",
+      "attribute": "name",
+      "path": "$.name"
+    }
   ]
 }
 ```
 
-Missing resources return the same envelope with:
+Missing resources return the same envelope:
 
 ```json
 {
-  "status": 404,
-  "error": "Not Found",
-  "code": "RESOURCE_NOT_FOUND"
+  "errors": [
+    {
+      "code": "RESOURCE_NOT_FOUND",
+      "message": "Resource not found: f78a8762-f661-45c8-b45a-1d154a61f0a5",
+      "attribute": "resourceId",
+      "path": "$.resourceId"
+    }
+  ]
 }
 ```
 

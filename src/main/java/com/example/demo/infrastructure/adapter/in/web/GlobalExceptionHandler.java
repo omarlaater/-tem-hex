@@ -2,12 +2,12 @@ package com.example.demo.infrastructure.adapter.in.web;
 
 import com.example.demo.application.exception.ResourceNotFoundException;
 import com.example.demo.domain.validation.DomainValidationException;
+import com.example.demo.infrastructure.adapter.in.web.error.ApiError;
 import com.example.demo.infrastructure.adapter.in.web.error.ApiErrorResponse;
-import com.example.demo.infrastructure.adapter.in.web.error.ApiValidationError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
-import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,10 +31,13 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "DOMAIN_VALIDATION_ERROR",
-                ex.getMessage(),
-                request.getRequestURI(),
-                List.of()
+                new ApiError(
+                        "DOMAIN_VALIDATION_ERROR",
+                        ex.getMessage(),
+                        null,
+                        "$",
+                        null
+                )
         );
     }
 
@@ -43,17 +46,17 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException ex,
             HttpServletRequest request
     ) {
-        List<ApiValidationError> details = ex.getBindingResult().getFieldErrors().stream()
-                .map(fieldError -> new ApiValidationError(fieldError.getField(), fieldError.getDefaultMessage()))
+        List<ApiError> errors = ex.getBindingResult().getFieldErrors().stream()
+                .map(fieldError -> new ApiError(
+                        "VALIDATION_ERROR",
+                        fieldError.getDefaultMessage(),
+                        attributeName(fieldError.getField()),
+                        jsonPath(fieldError.getField()),
+                        null
+                ))
                 .toList();
 
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                "VALIDATION_ERROR",
-                "Request validation failed",
-                request.getRequestURI(),
-                details
-        );
+        return buildResponse(HttpStatus.BAD_REQUEST, errors);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -61,17 +64,17 @@ public class GlobalExceptionHandler {
             ConstraintViolationException ex,
             HttpServletRequest request
     ) {
-        List<ApiValidationError> details = ex.getConstraintViolations().stream()
-                .map(violation -> new ApiValidationError(violation.getPropertyPath().toString(), violation.getMessage()))
+        List<ApiError> errors = ex.getConstraintViolations().stream()
+                .map(violation -> new ApiError(
+                        "VALIDATION_ERROR",
+                        violation.getMessage(),
+                        attributeName(violation.getPropertyPath().toString()),
+                        jsonPath(violation.getPropertyPath().toString()),
+                        null
+                ))
                 .toList();
 
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                "VALIDATION_ERROR",
-                "Constraint validation failed",
-                request.getRequestURI(),
-                details
-        );
+        return buildResponse(HttpStatus.BAD_REQUEST, errors);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -79,17 +82,15 @@ public class GlobalExceptionHandler {
             MethodArgumentTypeMismatchException ex,
             HttpServletRequest request
     ) {
-        ApiValidationError validationError = new ApiValidationError(
-                ex.getName(),
-                "Invalid value '" + ex.getValue() + "'"
-        );
-
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "INVALID_PARAMETER",
-                "Request contains invalid parameter type",
-                request.getRequestURI(),
-                List.of(validationError)
+                new ApiError(
+                        "INVALID_FORMAT",
+                        "Invalid value '" + ex.getValue() + "'",
+                        ex.getName(),
+                        jsonPath(ex.getName()),
+                        Map.of("rejectedValue", String.valueOf(ex.getValue()))
+                )
         );
     }
 
@@ -100,10 +101,13 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "INVALID_REQUEST_BODY",
-                "Malformed or invalid request body",
-                request.getRequestURI(),
-                List.of()
+                new ApiError(
+                        "INVALID_FORMAT",
+                        "Malformed or invalid request body",
+                        null,
+                        "$",
+                        null
+                )
         );
     }
 
@@ -114,10 +118,13 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.CONFLICT,
-                "DATA_INTEGRITY_VIOLATION",
-                "Data integrity constraint violated",
-                request.getRequestURI(),
-                List.of()
+                new ApiError(
+                        "DATA_INTEGRITY_VIOLATION",
+                        "Data integrity constraint violated",
+                        null,
+                        "$",
+                        null
+                )
         );
     }
 
@@ -128,10 +135,13 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.NOT_FOUND,
-                "RESOURCE_NOT_FOUND",
-                ex.getMessage(),
-                request.getRequestURI(),
-                List.of()
+                new ApiError(
+                        "RESOURCE_NOT_FOUND",
+                        ex.getMessage(),
+                        "resourceId",
+                        "$.resourceId",
+                        null
+                )
         );
     }
 
@@ -140,29 +150,45 @@ public class GlobalExceptionHandler {
         LOGGER.error("Unhandled exception occurred while processing request {}", request.getRequestURI(), ex);
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "INTERNAL_ERROR",
-                "Unexpected error",
-                request.getRequestURI(),
-                List.of()
+                new ApiError(
+                        "INTERNAL_ERROR",
+                        "Unexpected error",
+                        null,
+                        "$",
+                        null
+                )
         );
     }
 
-    private ResponseEntity<ApiErrorResponse> buildResponse(
-            HttpStatus status,
-            String code,
-            String message,
-            String path,
-            List<ApiValidationError> details
-    ) {
-        ApiErrorResponse response = new ApiErrorResponse(
-                Instant.now(),
-                status.value(),
-                status.getReasonPhrase(),
-                code,
-                message,
-                path,
-                details
-        );
+    private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, ApiError error) {
+        return buildResponse(status, List.of(error));
+    }
+
+    private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, List<ApiError> errors) {
+        ApiErrorResponse response = new ApiErrorResponse(errors);
         return ResponseEntity.status(status).body(response);
+    }
+
+    private String jsonPath(String attributePath) {
+        if (attributePath == null || attributePath.isBlank()) {
+            return "$";
+        }
+        if (attributePath.startsWith("$")) {
+            return attributePath;
+        }
+        return "$." + attributePath;
+    }
+
+    private String attributeName(String attributePath) {
+        if (attributePath == null || attributePath.isBlank()) {
+            return null;
+        }
+
+        String withoutIndexes = attributePath.replaceAll("\\[[^]]*]", "");
+        int lastDotIndex = withoutIndexes.lastIndexOf('.');
+        if (lastDotIndex >= 0 && lastDotIndex < withoutIndexes.length() - 1) {
+            return withoutIndexes.substring(lastDotIndex + 1);
+        }
+        return withoutIndexes;
     }
 }
